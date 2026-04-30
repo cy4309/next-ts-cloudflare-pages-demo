@@ -21,6 +21,18 @@ export type D1Database = {
 
 export type CloudflareEnv = {
   DB?: D1Database;
+  TODOS_CACHE?: {
+    get: (key: string) => Promise<string | null>;
+    put: (key: string, value: string) => Promise<void>;
+    delete: (key: string) => Promise<void>;
+  };
+  BUCKET?: {
+    put: (
+      key: string,
+      value: ArrayBuffer | ArrayBufferView | string | Blob
+    ) => Promise<unknown>;
+    delete: (key: string) => Promise<void>;
+  };
 };
 
 export async function getCloudflareEnv(): Promise<CloudflareEnv | null> {

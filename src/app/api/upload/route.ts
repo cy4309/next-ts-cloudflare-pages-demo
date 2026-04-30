@@ -1,35 +1,9 @@
 import { NextResponse } from "next/server";
+import { buildObjectKey, uploadR2Object } from "@/lib/storage/r2";
 
 export const runtime = "edge";
 
-function getRequiredEnv() {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-
-  if (!accountId || !bucketName || !token) {
-    return {
-      ok: false as const,
-      error:
-        "Missing env vars. Required: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_R2_BUCKET_NAME, CLOUDFLARE_API_TOKEN",
-    };
-  }
-
-  return { ok: true as const, accountId, bucketName, token };
-}
-
-function buildObjectKey(filename: string) {
-  const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const random = Math.random().toString(36).slice(2, 8);
-  return `todo-${Date.now()}-${random}-${safeName}`;
-}
-
 export async function POST(request: Request) {
-  const env = getRequiredEnv();
-  if (!env.ok) {
-    return NextResponse.json({ ok: false, error: env.error }, { status: 500 });
-  }
-
   const formData = await request.formData();
   const file = formData.get("file");
   if (!(file instanceof File)) {
@@ -47,24 +21,16 @@ export async function POST(request: Request) {
   }
 
   const key = buildObjectKey(file.name || "upload.bin");
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${env.accountId}/r2/buckets/${env.bucketName}/objects/${encodeURIComponent(
-    key
-  )}`;
-  const uploadRes = await fetch(endpoint, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${env.token}`,
-      "content-type": file.type || "application/octet-stream",
-    },
-    body: await file.arrayBuffer(),
-    cache: "no-store",
-  });
-
-  if (!uploadRes.ok) {
+  const uploadResult = await uploadR2Object(
+    key,
+    await file.arrayBuffer(),
+    file.type || "application/octet-stream"
+  );
+  if (!uploadResult.ok) {
     return NextResponse.json(
       {
         ok: false,
-        error: `R2 upload failed: HTTP ${uploadRes.status}`,
+        error: uploadResult.error ?? "R2 upload failed",
       },
       { status: 500 }
     );

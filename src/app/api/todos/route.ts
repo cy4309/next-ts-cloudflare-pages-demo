@@ -1,81 +1,12 @@
 import { NextResponse } from "next/server";
-import { createTodo, listTodos, type Todo } from "@/lib/todos/d1";
+import { createTodo, listTodos } from "@/lib/todos/d1";
+import {
+  invalidateTodosCache,
+  readTodosCache,
+  writeTodosCache,
+} from "@/lib/todos/cache";
 
 export const runtime = "edge";
-
-const TODOS_CACHE_KEY = "todos:list:v1";
-
-async function readTodosCache(): Promise<Todo[] | null> {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const namespaceId = process.env.CLOUDFLARE_KV_NAMESPACE_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-
-  if (!accountId || !namespaceId || !token) {
-    return null;
-  }
-
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${TODOS_CACHE_KEY}`;
-  const res = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    return null;
-  }
-
-  const text = await res.text();
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text) as Todo[];
-  } catch {
-    return null;
-  }
-}
-
-async function writeTodosCache(todos: Todo[]) {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const namespaceId = process.env.CLOUDFLARE_KV_NAMESPACE_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-
-  if (!accountId || !namespaceId || !token) {
-    return;
-  }
-
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${TODOS_CACHE_KEY}`;
-  await fetch(endpoint, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(todos),
-    cache: "no-store",
-  });
-}
-
-export async function invalidateTodosCache() {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const namespaceId = process.env.CLOUDFLARE_KV_NAMESPACE_ID;
-  const token = process.env.CLOUDFLARE_API_TOKEN;
-
-  if (!accountId || !namespaceId || !token) {
-    return;
-  }
-
-  const endpoint = `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${namespaceId}/values/${TODOS_CACHE_KEY}`;
-  await fetch(endpoint, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-}
 
 export async function GET() {
   const cachedTodos = await readTodosCache();
