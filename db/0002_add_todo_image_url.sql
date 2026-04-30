@@ -1,0 +1,1 @@
+ALTER TABLE todos ADD COLUMN image_url TEXT;
